@@ -1,0 +1,64 @@
+version: '3.8'
+services:
+  namesrv:
+    image: swr.cn-south-4.myhuaweicloud.com/apache/rocketmq:5.3.2
+    container_name: rmqnamesrv
+    ports:
+      - 9876:9876
+    networks:
+      - rocketmq
+    command: sh mqnamesrv
+  broker:
+    image: swr.cn-south-4.myhuaweicloud.com/apache/rocketmq:5.3.2
+    container_name: rmqbroker
+    ports:
+      - 10909:10909
+      - 10911:10911
+      - 10912:10912
+      - 5557:5557
+    environment:
+      - NAMESRV_ADDR=rmqnamesrv:9876
+      - JAVA_OPT_EXT=-server -Xms8g -Xmx8g -Xmn4g 
+    depends_on:
+      - namesrv
+    networks:
+      - rocketmq
+    command: "sh mqbroker -c /home/rocketmq/rocketmq-5.3.2/conf/broker.conf"
+    volumes:
+      - ./broker.conf:/home/rocketmq/rocketmq-5.3.2/conf/broker.conf
+      - ./plain_acl.yml:/home/rocketmq/rocketmq-5.3.2/conf/plain_acl.yml
+      - ./store:/home/rocketmq/store
+  dashboard:
+    image: swr.cn-south-4.myhuaweicloud.com/apache/rocketmq-dashboard:2.0.0
+    container_name: rmqdashboad
+    ports:
+      - 8082:8082
+    environment:
+      - |
+        JAVA_OPTS=-Drocketmq.namesrv.addr=YOUR_NAMESERVER_IP:9876 -Dserver.port=8082
+        -Drocketmq.config.accessKey=YOUR_ACCESS_KEY
+        -Drocketmq.config.secretKey=YOUR_SECRET_KEY
+    command: sh mqdashboard
+    networks:
+      - rocketmq
+  
+  node-exporter:
+    image: swr.cn-south-4.myhuaweicloud.com/apache/node-exporter:1.9.1
+    container_name: rmqnodeexporter
+    ports:
+      - 9100:9100
+    command: --path.procfs=/host/proc --path.sysfs=/host/sys --collector.filesystem.ignored-fs-types=tmpfs,devtmpfs,proc,sysfs,cgroup,devpts
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+    networks:
+      - rocketmq
+
+networks:
+  rocketmq:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.98.0/24
+          gateway: 192.168.98.1
+
